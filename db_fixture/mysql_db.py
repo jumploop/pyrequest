@@ -6,7 +6,7 @@ import configparser as cparser
 # ======== Reading db_config.ini setting ===========
 base_dir = dirname(dirname(abspath(__file__)))
 base_dir = base_dir.replace('\\', '/')
-file_path = base_dir + "/db_config.ini"
+file_path = f'{base_dir}/db_config.ini'
 
 cf = cparser.ConfigParser()
 
@@ -37,7 +37,7 @@ class DB:
     # clear table data
     def clear(self, table_name):
         # real_sql = "truncate table " + table_name + ";"
-        real_sql = "delete from " + table_name + ";"
+        real_sql = f"delete from {table_name};"
         with self.connection.cursor() as cursor:
             cursor.execute("SET FOREIGN_KEY_CHECKS=0;")
             cursor.execute(real_sql)
@@ -51,7 +51,7 @@ class DB:
         print(table_data)
         key = ','.join(table_data.keys())
         value = ','.join(table_data.values())
-        real_sql = "INSERT INTO " + table_name + " (" + key + ") VALUES (" + value + ")"
+        real_sql = f"INSERT INTO {table_name} ({key}) VALUES ({value})"
         print(real_sql)
 
         with self.connection.cursor() as cursor:

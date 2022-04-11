@@ -801,31 +801,30 @@ class _TestResult(TestResult):
         # Usually one of addSuccess, addError or addFailure would have been called.
         # But there are some path in unittest that would bypass this.
         # We must disconnect stdout in stopTest(), which is guaranteed to be called.
-        if self.rerun and self.rerun >= 1:
-            if self.status == 1:
-                self.runs += 1
-                if self.runs <= self.rerun:
-                    if self.save_last_run:
-                        t = self.result.pop(-1)
-                        if t[0] == 1:
-                            self.failure_count -= 1
-                        else:
-                            self.error_count -= 1
-                    test = copy.copy(test)
-                    sys.stderr.write("Retesting... ")
-                    sys.stderr.write(str(test))
-                    sys.stderr.write('..%d \n' % self.runs)
-                    doc = getattr(test, '_testMethodDoc', u"") or u''
-                    if doc.find('->rerun') != -1:
-                        doc = doc[:doc.find('->rerun')]
-                    desc = "%s->rerun:%d" % (doc, self.runs)
-                    if isinstance(desc, str):
-                        desc = desc
-                    test._testMethodDoc = desc
-                    test(self)
-                else:
-                    self.status = 0
-                    self.runs = 0
+        if self.rerun and self.rerun >= 1 and self.status == 1:
+            self.runs += 1
+            if self.runs <= self.rerun:
+                if self.save_last_run:
+                    t = self.result.pop(-1)
+                    if t[0] == 1:
+                        self.failure_count -= 1
+                    else:
+                        self.error_count -= 1
+                test = copy.copy(test)
+                sys.stderr.write("Retesting... ")
+                sys.stderr.write(str(test))
+                sys.stderr.write('..%d \n' % self.runs)
+                doc = getattr(test, '_testMethodDoc', u"") or u''
+                if doc.find('->rerun') != -1:
+                    doc = doc[:doc.find('->rerun')]
+                desc = "%s->rerun:%d" % (doc, self.runs)
+                if isinstance(desc, str):
+                    desc = desc
+                test._testMethodDoc = desc
+                test(self)
+            else:
+                self.status = 0
+                self.runs = 0
         self.complete_output()
 
     def addSuccess(self, test):
@@ -839,7 +838,7 @@ class _TestResult(TestResult):
             sys.stderr.write(str(test))
             sys.stderr.write('\n')
         else:
-            sys.stderr.write('.' + str(self.success_count))
+            sys.stderr.write(f'.{self.success_count}')
 
     def addError(self, test, err):
         self.error_count += 1
@@ -848,9 +847,7 @@ class _TestResult(TestResult):
         _, _exc_str = self.errors[-1]
         output = self.complete_output()
         self.result.append((2, test, output, _exc_str))
-        if not getattr(test, "driver", ""):
-            pass
-        else:
+        if getattr(test, "driver", ""):
             try:
                 driver = getattr(test, "driver")
                 test.imgs.append(driver.get_screenshot_as_base64())
@@ -870,9 +867,7 @@ class _TestResult(TestResult):
         _, _exc_str = self.failures[-1]
         output = self.complete_output()
         self.result.append((1, test, output, _exc_str))
-        if not getattr(test, "driver", ""):
-            pass
-        else:
+        if getattr(test, "driver", ""):
             try:
                 driver = getattr(test, "driver")
                 test.imgs.append(driver.get_screenshot_as_base64())
@@ -908,10 +903,7 @@ class HTMLTestRunner(Template_mixin):
         self.verbosity = verbosity
         self.save_last_run = save_last_run
         self.run_times = 0
-        if title is None:
-            self.title = self.DEFAULT_TITLE
-        else:
-            self.title = title
+        self.title = self.DEFAULT_TITLE if title is None else title
         if description is None:
             self.description = self.DEFAULT_DESCRIPTION
         else:
@@ -936,12 +928,11 @@ class HTMLTestRunner(Template_mixin):
         classes = []
         for n, t, o, e in result_list:
             cls = t.__class__
-            if not cls in rmap:
+            if cls not in rmap:
                 rmap[cls] = []
                 classes.append(cls)
             rmap[cls].append((n, t, o, e))
-        r = [(cls, rmap[cls]) for cls in classes]
-        return r
+        return [(cls, rmap[cls]) for cls in classes]
 
     def getReportAttributes(self, result):
         """
@@ -951,19 +942,16 @@ class HTMLTestRunner(Template_mixin):
         startTime = str(self.startTime)[:19]
         duration = str(self.stopTime - self.startTime)
         status = []
-        
+
         if result.success_count:
-            status.append('Passed:%s' % result.success_count)
+            status.append(f'Passed:{result.success_count}')
         if result.failure_count:
-            status.append('Failed:%s' % result.failure_count)
+            status.append(f'Failed:{result.failure_count}')
         if result.error_count:
-            status.append('Errors:%s' % result.error_count)
+            status.append(f'Errors:{result.error_count}')
         if result.skip_count:
-            status.append('Skiped:%s' % result.skip_count)
-        if status:
-            status = ' '.join(status)
-        else:
-            status = 'none'
+            status.append(f'Skiped:{result.skip_count}')
+        status = ' '.join(status) if status else 'none'
         result = {
             "pass": result.success_count,
             "fail": result.failure_count,
@@ -979,7 +967,7 @@ class HTMLTestRunner(Template_mixin):
 
     def generateReport(self, test, result):
         report_attrs = self.getReportAttributes(result)
-        generator = 'HTMLTestRunner %s' % __version__
+        generator = f'HTMLTestRunner {__version__}'
         stylesheet = self._generate_stylesheet()
         heading = self._generate_heading(report_attrs)
         report = self._generate_report(result)
@@ -1012,7 +1000,7 @@ class HTMLTestRunner(Template_mixin):
                     value=saxutils.escape(value),
                 )
                 a_lines.append(line)
-        heading = self.HEADING_TMPL % dict(
+        return self.HEADING_TMPL % dict(
             title=saxutils.escape(self.title),
             parameters=''.join(a_lines),
             description=saxutils.escape(self.description),
@@ -1021,7 +1009,6 @@ class HTMLTestRunner(Template_mixin):
             error_count=saxutils.escape(str(result["error"])),
             skip_count=saxutils.escape(str(result["skip"])),
         )
-        return heading
 
     def _generate_report(self, result):
         rows = []
@@ -1043,44 +1030,51 @@ class HTMLTestRunner(Template_mixin):
             if cls.__module__ == "__main__":
                 name = cls.__name__
             else:
-                name = "%s.%s" % (cls.__module__, cls.__name__)
+                name = f"{cls.__module__}.{cls.__name__}"
             doc = cls.__doc__ or ""
-            desc = doc and '%s: %s' % (name, doc) or name
+            desc = doc and f'{name}: {doc}' or name
 
             row = self.REPORT_CLASS_TMPL % dict(
-                style=ne > 0 and 'errorClass' or nf > 0 and 'failClass' or 'passClass',
+                style=ne > 0
+                and 'errorClass'
+                or nf > 0
+                and 'failClass'
+                or 'passClass',
                 desc=desc,
                 count=np + nf + ne,
                 Pass=np,
                 fail=nf,
                 error=ne,
-                cid='c%s.%s' % (self.run_times, cid + 1),
+                cid=f'c{self.run_times}.{cid + 1}',
             )
+
             rows.append(row)
 
             for tid, (n, t, o, e) in enumerate(cls_results):
                 self._generate_report_test(rows, cid, tid, n, t, o, e)
 
-        report = self.REPORT_TMPL % dict(
+        return self.REPORT_TMPL % dict(
             test_list=''.join(rows),
-            count=str(result.success_count + result.failure_count + result.error_count),
+            count=str(
+                result.success_count + result.failure_count + result.error_count
+            ),
             Pass=str(result.success_count),
             fail=str(result.failure_count),
             error=str(result.error_count),
             skip=str(result.skip_count),
-            total=str(result.success_count + result.failure_count + result.error_count),
+            total=str(
+                result.success_count + result.failure_count + result.error_count
+            ),
             channel=str(self.run_times),
         )
-        return report
 
     def _generate_chart(self, result):
-        chart = self.ECHARTS_SCRIPT % dict(
+        return self.ECHARTS_SCRIPT % dict(
             Pass=str(result.success_count),
             fail=str(result.failure_count),
             error=str(result.error_count),
             skip=str(result.skip_count),
         )
-        return chart
 
     def _generate_report_test(self, rows, cid, tid, n, t, o, e):
         # e.g. 'pt1.1', 'ft1.1','et1.1', 'st1.1' etc
@@ -1097,35 +1091,32 @@ class HTMLTestRunner(Template_mixin):
         # tid = (n == 0 and 'p' or 'f') + 't%s.%s' % (cid + 1, tid + 1)
         name = t.id().split('.')[-1]
         doc = t.shortDescription() or ""
-        desc = doc and ('%s: %s' % (name, doc)) or name
+        desc = doc and f'{name}: {doc}' or name
         tmpl = has_output and self.REPORT_TEST_WITH_OUTPUT_TMPL or self.REPORT_TEST_NO_OUTPUT_TMPL
 
-        # o and e should be byte string because they are collected from stdout and stderr?
-        if isinstance(o, str):
-            # TODO: some problem with 'string_escape': it escape \n and mess up formating
-            # uo = unicode(o.encode('string_escape'))
-            uo = o
-        else:
-            uo = o
-        if isinstance(e, str):
-            # TODO: some problem with 'string_escape': it escape \n and mess up formating
-            # ue = unicode(e.encode('string_escape'))
-            ue = e
-        else:
-            ue = e
-
+        # TODO: some problem with 'string_escape': it escape \n and mess up formating
+        # uo = unicode(o.encode('string_escape'))
+        uo = o
+        # TODO: some problem with 'string_escape': it escape \n and mess up formating
+        # ue = unicode(e.encode('string_escape'))
+        ue = e
         script = self.REPORT_TEST_OUTPUT_TMPL % dict(
             id=tid,
             output=saxutils.escape(uo + ue),
         )
         if getattr(t, 'imgs', []):
             # 判断截图列表，如果有则追加
-            tmp = ""
-            for i, img in enumerate(t.imgs):
-                if i == 0:
-                    tmp += """<img src="data:image/jpg;base64,{}" style="display: block;" class="img"/>\n""".format(img)
-                else:
-                    tmp += """<img src="data:image/jpg;base64,{}" style="display: none;" class="img"/>\n""".format(img)
+            tmp = "".join(
+                """<img src="data:image/jpg;base64,{}" style="display: block;" class="img"/>\n""".format(
+                    img
+                )
+                if i == 0
+                else """<img src="data:image/jpg;base64,{}" style="display: none;" class="img"/>\n""".format(
+                    img
+                )
+                for i, img in enumerate(t.imgs)
+            )
+
             screenshots_html = self.IMG_TMPL.format(imgs=tmp)
         else:
             screenshots_html = """"""

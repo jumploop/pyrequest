@@ -15,10 +15,9 @@ if __name__ == "__main__":
     test_data.init_data() # 初始化接口测试数据
 
     now = time.strftime("%Y-%m-%d %H_%M_%S")
-    filename = './report/' + now + '_result.html'
-    fp = open(filename, 'wb')
-    runner = HTMLTestRunner(stream=fp,
-                            title='发布会签到系统接口自动化测试',
-                            description='运行环境：MySQL(PyMySQL), Requests, unittest ')
-    runner.run(testsuit, rerun=0, save_last_run=False)
-    fp.close()
+    filename = f'./report/{now}_result.html'
+    with open(filename, 'wb') as fp:
+        runner = HTMLTestRunner(stream=fp,
+                                title='发布会签到系统接口自动化测试',
+                                description='运行环境：MySQL(PyMySQL), Requests, unittest ')
+        runner.run(testsuit, rerun=0, save_last_run=False)
